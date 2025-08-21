@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | Proyecto Portón</title>
+  <style>
+    :root { font-family: system-ui, Arial, sans-serif; }
+    body { margin: 0; background: #eef2f7; }
+    .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 20px; }
+    .card { background:#fff; width:100%; max-width: 380px; padding:28px; border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,.12); }
+    h1 { margin:0 0 4px; font-size:22px; }
+    p.sub { margin:0 0 18px; color:#555; font-size:14px; }
+    label { display:block; margin:10px 0 6px; font-weight:600; font-size:14px; }
+    input[type="text"], input[type="password"]{
+      width:100%; padding:10px 12px; border:1px solid #cfd8e3; border-radius:10px; outline:none;
+    }
+    input:focus { border-color:#7aa2ff; box-shadow:0 0 0 3px rgba(122,162,255,.2); }
+    .row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+    .hint { font-size:12px; color:#6b7280; }
+    .btn {
+      width:100%; margin-top:14px; padding:12px; border:none; border-radius:12px; font-weight:700;
+      background:#1f6feb; color:#fff; cursor:pointer;
+    }
+    .btn:disabled { opacity:.7; cursor:not-allowed; }
+    .error { margin-top:12px; color:#b91c1c; font-size:13px; display:none; }
+    .ok { margin-top:12px; color:#0f766e; font-size:13px; display:none; }
+    .footer { margin-top:14px; font-size:12px; color:#6b7280; text-align:center; }
+    .panel {
+      display:none; max-width:720px; width:100%;
+      background:#fff; padding:24px; border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,.12);
+    }
+    .topbar { display:flex; justify-content:space-between; align-items:center; }
+    .tag { padding:4px 10px; border-radius:999px; background:#eef2f7; font-size:12px; }
+    .relay { margin-top:18px; display:flex; gap:10px; }
+    .relay button { padding:12px; border:none; border-radius:10px; background:#111827; color:#fff; cursor:pointer; }
+    .relay .outline { background:#fff; color:#111827; border:1px solid #cfd8e3; }
+    .log { margin-top:14px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px;
+           background:#0b1020; color:#cde1ff; border-radius:10px; padding:12px; min-height:56px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Tarjeta de LOGIN -->
+    <div class="card" id="cardLogin">
+      <h1>Acceso</h1>
+      <p class="sub">Ingresa tus credenciales para continuar.</p>
+
+      <form id="formLogin">
+        <label for="user">Usuario</label>
+        <input id="user" type="text" autocomplete="username" placeholder="Ej: admin" required />
+
+        <label for="pass">Contraseña</label>
+        <input id="pass" type="password" autocomplete="current-password" placeholder="••••••" required />
+
+        <div class="row">
+          <label class="hint" style="display:flex; align-items:center; gap:8px; font-weight:500;">
+            <input type="checkbox" id="togglePass" />
+            Mostrar contraseña
+          </label>
+          <span class="hint">Demo: admin / 1234</span>
+        </div>
+
+        <button class="btn" id="btnLogin" type="submit">Entrar</button>
+        <div class="error" id="errBox">Usuario o contraseña incorrectos.</div>
+        <div class="ok" id="okBox">Accediendo…</div>
+      </form>
+
+      <div class="footer">Versión demo local — luego conectaremos con el teléfono y el relé.</div>
+    </div>
+
+    <!-- Panel tras login (simulado) -->
+    <div class="panel" id="panelApp">
+      <div class="topbar">
+        <h2>Panel de Control</h2>
+        <span class="tag" id="whoami">Usuario: —</span>
+      </div>
+      <p>Simulación de control de relé. (Aún no toca hardware real.)</p>
+
+      <div class="relay">
+        <button id="btnOpen">Abrir puerta</button>
+        <button class="outline" id="btnClose">Cerrar puerta</button>
+        <button class="outline" id="btnLogout">Salir</button>
+      </div>
+
+      <div class="log" id="logBox">Listo.\n</div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Demo de autenticación en el navegador (no seguro para producción) ======
+    const DEMO_USER = "admin";
+    const DEMO_PASS = "1234";
+
+    const form = document.getElementById("formLogin");
+    const user = document.getElementById("user");
+    const pass = document.getElementById("pass");
+    const btnLogin = document.getElementById("btnLogin");
+    const errBox = document.getElementById("errBox");
+    const okBox = document.getElementById("okBox");
+    const togglePass = document.getElementById("togglePass");
+
+    const cardLogin = document.getElementById("cardLogin");
+    const panelApp = document.getElementById("panelApp");
+    const whoami = document.getElementById("whoami");
+    const logBox = document.getElementById("logBox");
+    const btnOpen = document.getElementById("btnOpen");
+    const btnClose = document.getElementById("btnClose");
+    const btnLogout = document.getElementById("btnLogout");
+
+    // Mostrar/ocultar contraseña
+    togglePass.addEventListener("change", () => {
+      pass.type = togglePass.checked ? "text" : "password";
+    });
+
+    // Persistimos una sesión demo en localStorage
+    function setSession(username) { localStorage.setItem("session_user", username); }
+    function getSession() { return localStorage.getItem("session_user"); }
+    function clearSession() { localStorage.removeItem("session_user"); }
+
+    function showPanel(username) {
+      whoami.textContent = "Usuario: " + username;
+      cardLogin.style.display = "none";
+      panelApp.style.display = "block";
+    }
+    function showLogin() {
+      cardLogin.style.display = "block";
+      panelApp.style.display = "none";
+    }
+
+    // Restaurar sesión si existe
+    const current = getSession();
+    if (current) { showPanel(current); }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      errBox.style.display = "none";
+      okBox.style.display = "none";
+
+      const u = user.value.trim();
+      const p = pass.value;
+
+      // Pequeña validación
+      if (!u || !p) {
+        errBox.textContent = "Completa usuario y contraseña.";
+        errBox.style.display = "block";
+        return;
+      }
+
+      // “Autenticación” local (solo para pruebas)
+      btnLogin.disabled = true;
+      okBox.style.display = "block";
+
+      setTimeout(() => {
+        if (u === DEMO_USER && p === DEMO_PASS) {
+          setSession(u);
+          showPanel(u);
+          // Limpia campos por seguridad
+          form.reset();
+          btnLogin.disabled = false;
+          okBox.style.display = "none";
+        } else {
+          errBox.textContent = "Usuario o contraseña incorrectos.";
+          errBox.style.display = "block";
+          btnLogin.disabled = false;
+          okBox.style.display = "none";
+        }
+      }, 600);
+    });
+
+    // Simulación de control del “relé”
+    function log(msg) {
+      logBox.textContent += msg + "\n";
+      logBox.scrollTop = logBox.scrollHeight;
+      console.log("[RELAY]", msg);
+    }
+
+    btnOpen.addEventListener("click", () => {
+      log("→ Comando: ABRIR (simulado)");
+      // aquí luego haremos fetch() al teléfono/servidor
+    });
+    btnClose.addEventListener("click", () => {
+      log("→ Comando: CERRAR (simulado)");
+    });
+
+    btnLogout.addEventListener("click", () => {
+      clearSession();
+      showLogin();
+    });
+  </script>
+</body>
+</html>
